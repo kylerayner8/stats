@@ -8,6 +8,8 @@ logging. basicConfig(filename="draft.log")
 logger = logging.getLogger("DRAFT_STATS")
 
 #TODO: Get scout consensus
+#TODO: lots of cleanup.
+
 
 def format_nba_data(player_row):
     name = player_row.find(attrs={'data-stat': 'player'}).text
@@ -48,25 +50,35 @@ def get_college_data(player_name, year_str, player_index):
         except Exception as e:
             pass
         position_formatted = position.strip()
+
+        # Get the /40 stats table from the page
         tables = college_soup.find_all(text=lambda text: text and isinstance(text, Comment) and 'Per 40 Minutes Table' in text)
         table_soup = BeautifulSoup(tables[0], 'lxml')
         stat_rows = table_soup.find('tbody').find_all('tr')
+        # Check if this player is old enough to not have /40 stats.
         if stat_rows == None:
             logger.warning("No per 40 stats, trying {0} ({1}) {2}".format(player_name, url_name, player_index+1))
-            recent_season, height, position_formatted = get_college_data(player_name, year_str, player_index + 1)
+            return get_college_data(player_name, year_str, player_index + 1)
+
+        # Check if this is the wrong player with this name.
         recent_season = stat_rows[-1]
         if year_str[-2:] != recent_season.find(attrs={"data-stat": "season"}).text[-2:]:
             logger.warning("BAD YEAR, TRYING {0} ({1}) {2}".format(player_name, url_name, player_index+1))
-            recent_season, height, position_formatted = get_college_data(player_name, year_str, player_index+1)
+            return get_college_data(player_name, year_str, player_index+1)
 
-        return recent_season, height, position_formatted
+        return_dict = {
+            'recent_season': recent_season,
+            'height': height,
+            'position_formatted': position_formatted
+        }
+        return return_dict
 
     except Exception as e:
         logger.error("Something went wrong with: {0}:{1}".format(player_name, e))
         return None
 
 
-def format_for_csv(nba_row, college_row, player_age, player_height, player_position, year):
+def format_for_csv(nba_row, college_row, player_age, player_height, player_position, ranking, year):
     name = nba_row.find(attrs={'data-stat': 'player'}).text
     data_row_list = list()
 
@@ -75,6 +87,7 @@ def format_for_csv(nba_row, college_row, player_age, player_height, player_posit
     # Format: data_row_list.append(nba_row.find(attrs={"data-stat": ""}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "pick_overall"}).text)
     data_row_list.append(name)
+    data_row_list.append(ranking)
     data_row_list.append(player_age)
     data_row_list.append(player_height)
     data_row_list.append(player_position)
@@ -86,7 +99,7 @@ def format_for_csv(nba_row, college_row, player_age, player_height, player_posit
     # Might be None, so need to account for that
     data_row_list.append(nba_row.find(attrs={"data-stat": "college_name"}).text.replace(",", ""))
     if college_row is None:
-        for i in range(21):
+        for i in range(22):
             data_row_list.append("")
     else:
         #data_row_list.append(college_row.find(attrs={"data-stat": ""}).text)
@@ -136,6 +149,30 @@ def format_for_csv(nba_row, college_row, player_age, player_height, player_posit
     return name, data_row_list
 
 
+def get_scout_data(nba_stats_dict, year):
+
+    # Get page
+    scout_url = constants.recruit_url.format(year)
+    scout_page = requests.get(scout_url)
+    scout_soup = BeautifulSoup(scout_page.text, 'lxml')
+
+    # Get table with data
+    scout_table = scout_soup.find('div', id='div_rsci_rankings')
+    rankings_dict = dict()
+    print(scout_table)
+    for player in nba_stats_dict.keys():
+        print(player)
+        player_cell = scout_table.find(text=player)
+        if player_cell != None:
+            scout_ranking = player_cell.parent.parent.parent.find(attrs={'data-stat': 'rank'}).text
+            print(player, scout_ranking)
+            rankings_dict[player] = scout_ranking
+        else:
+            rankings_dict[player] = ""
+
+    return rankings_dict
+
+
 def scrape():
 
     # Open file, write headers
@@ -147,9 +184,13 @@ def scrape():
 
     for year in constants.years:
         year_str = str(year)
+
         # Get list of players (and nba stats)
+        # Get the web page for the draft year
         draft_page = requests.get(constants.draft_url.format(year_str))
         soup = BeautifulSoup(draft_page.text, 'lxml')
+
+        # Find the rows of data on players
         draft_table = soup.find('div', class_="table_outer_container")
         rows = draft_table.find('tbody')
         rows_list = rows.find_all('tr')
@@ -159,12 +200,15 @@ def scrape():
                 if not row.find(attrs={'aria-label': "Player"}) and not row.find(attrs={'data-stat': 'header_per_g'}):
                     name, data = format_nba_data(row)
                     nba_stats_dict[name] = data
-            except:
+            except Exception as e:
                 pass
 
         # Get ages... ugh
+        # Get the web page
         second_draft_page = requests.get(constants.extended_draft_url.format(year_str))
         soup = BeautifulSoup(second_draft_page.text, 'lxml')
+
+        # Get the rows from the table corresponding to the players we have
         second_draft_table = soup.find('div', class_="table_outer_container")
         second_rows = second_draft_table.find('tbody')
         second_rows_list = second_rows.find_all('tr')
@@ -183,14 +227,20 @@ def scrape():
         height_dict = dict()
         college_position_dict = dict()
         for player in nba_stats_dict:
+            # If there is no college entry on the NBA page, don't try to get data
+            # (likely an international player)
             if nba_stats_dict[player].find(attrs={"data-stat": "college_name"}).text == "":
                 college_stats_dict[player] = None
                 height_dict[player] = ""
                 college_position_dict[player] = ""
             else:
                 try:
-                    stats_row, height, position = get_college_data(player, year_str, 1)
+                    college_data_dict = get_college_data(player, year_str, 1)
+                    stats_row = college_data_dict['recent_season']
+                    height = college_data_dict['height']
+                    position = college_data_dict['position_formatted']
                 except Exception as e:
+                    # Something went wrong here. Just ignore and move on.
                     logger.error("failed to get college data for {0}".format(player))
                     logger.error(e)
                     stats_row = None
@@ -201,10 +251,13 @@ def scrape():
                 height_dict[player] = height
                 college_position_dict[player] = position
 
+        # Get scout's consensus
+        rankings_dict = get_scout_data(nba_stats_dict, year)
+
         # append all stats
         all_stats = list()
         for player in nba_stats_dict:
-            name, data_list = format_for_csv(nba_stats_dict[player], college_stats_dict[player], age_dict[player], height_dict[player], college_position_dict[player], year_str)
+            name, data_list = format_for_csv(nba_stats_dict[player], college_stats_dict[player], age_dict[player], height_dict[player], college_position_dict[player], rankings_dict[player], year_str)
             all_stats.append(data_list)
 
         # write year's stats to file
