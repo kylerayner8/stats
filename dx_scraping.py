@@ -11,9 +11,29 @@ file_name = 'dx_stats.csv'
 
 
 def get_player_specs(player_url):
+
+    # Get page soup
     page = requests.get(player_url)
-    soup = BeautifulSoup(page.text)
+    soup = BeautifulSoup(page.text, 'lxml')
     player_dict = dict()
+
+    # Get overarching player specs structure
+    specs_css_class = "data small-12 medium-6 column"
+    try:
+        specs_div = soup.find("div", class_=specs_css_class)
+        specs_list = specs_div.find_all("div")
+    except Exception as e:
+        logger.error("Problem finding player specs in {0}".format(player_url))
+        raise e
+
+    # Get height, age, position, college
+    height_full = specs_list[0].text.strip().split("Height: ")[1].split(" ")[0]
+    height_list = height_full.replace('"', '').split("'")
+    height_string = height_list[0] + "-" + height_list[1]
+    player_dict['height'] = height_string
+    player_dict['age'] = specs_list[2].text.strip().split("Age: ")[1]
+    player_dict['pos'] = specs_list[3].text.strip().split("Position: ")[1]
+    #player_dict['college'] = None
 
     return player_dict
 
@@ -26,11 +46,19 @@ def format_for_csv(player_data_dict):
         row_str += player + ","
         player_row = player_data_dict[player]
 
-        # Get player specs
-        player_specs_dict = get_player_specs(player_row['url'])
+        player_url = player_row['url']
 
-        #TODO: stuff that I don't have yet
-        for i in range(6):
+        row_str += ','
+        # Get player specs
+        player_specs_dict = get_player_specs(player_url)
+        # Age
+        row_str += player_specs_dict['age'] + ','
+        # Height
+        row_str += player_specs_dict['height'] + ','
+        # Position
+        row_str += player_specs_dict['pos'] + ','
+
+        for i in range(2):
             row_str += ","
 
         # Actual data
@@ -73,47 +101,49 @@ def format_for_csv(player_data_dict):
 
 def get_dx_stats():
 
-    # Get page soup
-    page = requests.get(constants.dx_url.format(constants.dx_versions[0]))
-    soup = BeautifulSoup(page.text, 'lxml')
-
-    # Get table
-    try:
-        table = soup.find('table')
-        rows = table.find('tbody').find_all('tr')
-
-    except Exception as e:
-        logger.error("Exception getting rows from page: {0}".format(e))
-        raise(e)
-
     player_data_dict = dict()
-    for row in rows:
-        player_name = row.find("td", class_="text key").text
-        columns = row.find_all("td")
-        player_dict = {
-            "tm": columns[3].text.strip(),
-            "gp":  columns[4].text,
-            "min": columns[5].text,
-            "pts": columns[6].text,
-            "2pm": columns[7].text,
-            "2pa": columns[8].text,
-            "2p%": columns[9].text,
-            "3pm": columns[10].text,
-            "3pa": columns[11].text,
-            "3p%": columns[12].text,
-            "ftm": columns[13].text,
-            "fta": columns[14].text,
-            "ft%": columns[15].text,
-            "oreb": columns[16].text,
-            "dreb": columns[17].text,
-            "treb": columns[18].text,
-            "ast": columns[19].text,
-            "stl": columns[20].text,
-            "blk": columns[21].text,
-            "to": columns[22].text,
-            "pf": columns[23].text,
-        }
-        player_data_dict[player_name] = player_dict
+    for index in constants.dx_versions:
+        # Get page soup
+        page = requests.get(constants.dx_url.format(index))
+        soup = BeautifulSoup(page.text, 'lxml')
+
+        # Get table
+        try:
+            table = soup.find('table')
+            rows = table.find('tbody').find_all('tr')
+
+        except Exception as e:
+            logger.error("Exception getting rows from page: {0}".format(e))
+            raise(e)
+
+        for row in rows:
+            player_name = row.find("td", class_="text key").text
+            columns = row.find_all("td")
+            player_dict = {
+                "url": constants.dx_player_url.format(columns[1].find('a')['href']),
+                "tm": columns[3].text.strip(),
+                "gp":  columns[4].text,
+                "min": columns[5].text,
+                "pts": columns[6].text,
+                "2pm": columns[7].text,
+                "2pa": columns[8].text,
+                "2p%": columns[9].text,
+                "3pm": columns[10].text,
+                "3pa": columns[11].text,
+                "3p%": columns[12].text,
+                "ftm": columns[13].text,
+                "fta": columns[14].text,
+                "ft%": columns[15].text,
+                "oreb": columns[16].text,
+                "dreb": columns[17].text,
+                "treb": columns[18].text,
+                "ast": columns[19].text,
+                "stl": columns[20].text,
+                "blk": columns[21].text,
+                "to": columns[22].text,
+                "pf": columns[23].text,
+            }
+            player_data_dict[player_name] = player_dict
 
     # Format for writing
     output_rows = format_for_csv(player_data_dict)
