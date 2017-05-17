@@ -17,6 +17,10 @@ def format_nba_data(player_row):
 
 
 def format_player_name_for_sports_ref(player_name):
+    """
+    Takes a player's full name and formats it for use in a 
+    sports-reference url. 
+    """
     formatted_name = player_name.replace(" III", "")
     formatted_name = formatted_name.replace(".", "")
     formatted_name = formatted_name.replace("'", "")
