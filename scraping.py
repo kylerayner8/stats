@@ -78,7 +78,7 @@ def get_college_data(player_name, year_str, player_index):
         return None
 
 
-def format_for_csv(nba_row, college_row, player_age, player_height, player_position, ranking, year):
+def format_for_csv(nba_row, college_row, player_age, player_height, player_position, player_combined_dict, year):
     name = nba_row.find(attrs={'data-stat': 'player'}).text
     data_row_list = list()
 
@@ -87,9 +87,11 @@ def format_for_csv(nba_row, college_row, player_age, player_height, player_posit
     # Format: data_row_list.append(nba_row.find(attrs={"data-stat": ""}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "pick_overall"}).text)
     data_row_list.append(name)
-    data_row_list.append(ranking)
+    # Placeholder for RSCI
+    data_row_list.append("")
     data_row_list.append(player_age)
-    data_row_list.append(player_height)
+    data_row_list.append(player_combined_dict['height'])
+    #data_row_list.append(player_height)
     data_row_list.append(player_position)
     # Not necessary right now
     #data_row_list.append(nba_row.find(attrs={"data-stat": "college_name"}).text)
@@ -140,10 +142,19 @@ def format_for_csv(nba_row, college_row, player_age, player_height, player_posit
     data_row_list.append(nba_row.find(attrs={"data-stat": "pts_per_g"}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "trb_per_g"}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "ast_per_g"}).text)
+
+    # Blocks and steals (per 36)
+    data_row_list.append(player_combined_dict['blocks_per_36'])
+    data_row_list.append(player_combined_dict['steals_per_36'])
+    #data_row_list.append("")
+    #data_row_list.append("")
+
     data_row_list.append(nba_row.find(attrs={"data-stat": "ws"}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "ws_per_48"}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "bpm"}).text)
     data_row_list.append(nba_row.find(attrs={"data-stat": "vorp"}).text)
+
+    data_row_list.append(player_combined_dict['bbref'])
 
 
     return name, data_row_list
@@ -159,18 +170,40 @@ def get_scout_data(nba_stats_dict, year):
     # Get table with data
     scout_table = scout_soup.find('div', id='div_rsci_rankings')
     rankings_dict = dict()
-    print(scout_table)
     for player in nba_stats_dict.keys():
-        print(player)
         player_cell = scout_table.find(text=player)
         if player_cell != None:
             scout_ranking = player_cell.parent.parent.parent.find(attrs={'data-stat': 'rank'}).text
-            print(player, scout_ranking)
             rankings_dict[player] = scout_ranking
         else:
             rankings_dict[player] = ""
 
     return rankings_dict
+
+
+def get_nba_career_data(player_combined_dict):
+    # TODO: figure out how to handle edge cases better.
+    if player_combined_dict['bbref'] is None or player_combined_dict['bbref'] == "":
+        player_combined_dict['blocks_per_36'] = ""
+        player_combined_dict['steals_per_36'] = ""
+        return None
+    url = constants.bbref_base_url + player_combined_dict['bbref']
+    page = requests.get(url)
+    soup = BeautifulSoup(page.text, 'lxml')
+
+    per_minute_table_comment = soup.find(text=lambda text: text and isinstance(text, Comment) and 'Per 36 Minutes Table' in text)
+    if per_minute_table_comment is None:
+        player_combined_dict['blocks_per_36'] = ""
+        player_combined_dict['steals_per_36'] = ""
+        return None
+
+    per_minute_soup = BeautifulSoup(per_minute_table_comment, 'lxml')
+
+    career_stats_row = per_minute_soup.find('tfoot').find('tr')
+    player_combined_dict['blocks_per_36'] = career_stats_row.find(attrs={'data-stat': 'blk_per_mp'}).text
+    player_combined_dict['steals_per_36'] = career_stats_row.find(attrs={'data-stat': 'stl_per_mp'}).text
+
+    return None
 
 
 def scrape():
@@ -184,6 +217,10 @@ def scrape():
 
     for year in constants.years:
         year_str = str(year)
+        logger.info("Starting gathering data for {}".format(year_str))
+
+        #TODO: Need to make it so that all the data goes into this dict, keyed off player name.
+        all_data_dict = dict()
 
         # Get list of players (and nba stats)
         # Get the web page for the draft year
@@ -199,7 +236,16 @@ def scrape():
             try:
                 if not row.find(attrs={'aria-label': "Player"}) and not row.find(attrs={'data-stat': 'header_per_g'}):
                     name, data = format_nba_data(row)
-                    nba_stats_dict[name] = data
+                    nba_stats_dict[name] = row
+                    all_data_dict[name] = {'draft_page_row': row}
+                    try:
+                        player_link = row.find(attrs={'data-stat': 'player'}).find('a')
+                        web_link = player_link['href']
+                        all_data_dict[name]['bbref'] = web_link
+                    except:
+                        all_data_dict[name]['bbref'] = None
+                    get_nba_career_data(all_data_dict[name])
+
             except Exception as e:
                 pass
 
@@ -219,6 +265,7 @@ def scrape():
                     name = row.find(attrs={'data-stat': 'player'}).text
                     age = row.find(attrs={'data-stat': 'age'}).text
                     age_dict[name] = age
+                    all_data_dict[name]['age'] = age
             except:
                 pass
 
@@ -233,6 +280,9 @@ def scrape():
                 college_stats_dict[player] = None
                 height_dict[player] = ""
                 college_position_dict[player] = ""
+                all_data_dict[player]["college_stats"] = None
+                all_data_dict[player]['height'] = ""
+                all_data_dict[player]['position'] = ""
             else:
                 try:
                     college_data_dict = get_college_data(player, year_str, 1)
@@ -247,17 +297,22 @@ def scrape():
                     height = ""
                     position = ""
 
+                all_data_dict[player]['college_stats'] = stats_row
+                all_data_dict[player]['height'] = height
+                all_data_dict[player]['position'] = position
                 college_stats_dict[player] = stats_row
                 height_dict[player] = height
                 college_position_dict[player] = position
 
         # Get scout's consensus
-        rankings_dict = get_scout_data(nba_stats_dict, year)
+        #TODO: Figure out how to do this efficiently/accurately
+        #rankings_dict = get_scout_data(nba_stats_dict, year)
+        rankings_dict = {}
 
         # append all stats
         all_stats = list()
         for player in nba_stats_dict:
-            name, data_list = format_for_csv(nba_stats_dict[player], college_stats_dict[player], age_dict[player], height_dict[player], college_position_dict[player], rankings_dict[player], year_str)
+            name, data_list = format_for_csv(nba_stats_dict[player], college_stats_dict[player], age_dict[player], height_dict[player], college_position_dict[player], all_data_dict[player], year_str)
             all_stats.append(data_list)
 
         # write year's stats to file
