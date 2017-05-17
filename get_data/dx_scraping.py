@@ -1,8 +1,10 @@
+import logging
+import os
+
 import requests
 from bs4 import BeautifulSoup
-import os
-import logging
-import constants
+
+from get_data import constants
 
 logging. basicConfig(filename="draft.log")
 logger = logging.getLogger("DX_STATS")

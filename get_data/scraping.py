@@ -1,8 +1,10 @@
-from bs4 import BeautifulSoup, Comment
-import requests
-import os
-import constants
 import logging
+import os
+
+import requests
+from bs4 import BeautifulSoup, Comment
+
+from get_data import constants
 
 logging. basicConfig(filename="draft.log")
 logger = logging.getLogger("DRAFT_STATS")
