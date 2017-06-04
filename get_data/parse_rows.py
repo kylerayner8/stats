@@ -20,3 +20,12 @@ def parse_bbref_draft_row(row):
         raise e
 
     return return_data
+
+
+def parse_dx_draft_row(row):
+    return_data = dict()
+    cells = row.find_all('td')
+    return_data['name'] = cells[3].text.strip()
+    return_data['age'] = cells[6].text
+
+    return return_data

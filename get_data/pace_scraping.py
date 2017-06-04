@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup, Comment
 from write_csv import write_csv
 
 from get_data import constants
-from get_data.parse_rows import parse_bbref_draft_row
+from get_data.parse_rows import parse_bbref_draft_row, parse_dx_draft_row
 
 logging. basicConfig(filename="draft.log")
 logger = logging.getLogger("DRAFT_STATS")
@@ -49,6 +49,23 @@ def get_data(year):
 
     # Get pace-adjusted college data.
 
+    dx_page = requests.get(constants.dx_draft_url.format(year_str))
+    dx_soup = BeautifulSoup(dx_page.text, 'lxml')
+
+    rows = dx_soup.find('table').find('tbody').find_all('tr')
+    dx_players = list()
+    for row in rows:
+        player_dict = parse_dx_draft_row(row)
+        dx_players.append(player_dict)
+
+    for player_dict in dx_players:
+        #TODO: do this combination differently
+        # Should include the pick number in thd dx dict and index off of that
+        # (might be a pain finding each dict, but there's not a ton of data)
+        cur_name = player_dict['name']
+        full_player_dict = all_data_dict.get(cur_name, dict())
+        full_player_dict['age'] = player_dict['age']
+        all_data_dict[cur_name] = full_player_dict
 
     # Write out to file
 
