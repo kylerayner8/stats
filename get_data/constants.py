@@ -16,6 +16,7 @@ name_translations = {
 
 dx_player_url = 'http://www.draftexpress.com{0}'
 dx_url = "http://www.draftexpress.com/stats/ncaa/2017/all/basic/per40/15/all/top100/{0}/ptspg/desc"
+dx_draft_url = 'http://www.draftexpress.com/nba-mock-history/{0}/all/all/'
 dx_versions = ["1", "2", "3", "4"]
 
 stats_header = [
