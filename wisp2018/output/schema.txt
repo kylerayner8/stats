@@ -1,0 +1,5 @@
+player name
+    type [draft, college, nba]
+        year
+            stat type [per game, advanced, per poss,...]
+                stat [3p, FT%,..]
