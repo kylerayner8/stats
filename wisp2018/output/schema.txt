@@ -1,5 +1,16 @@
+# Where does pace go?
+
 player name
-    type [draft, college, nba]
-        year
-            stat type [per game, advanced, per poss,...]
-                stat [3p, FT%,..]
+    nba
+        height
+        weight
+        recruit rank
+        position
+        stat type [per game, advanced, per poss,...] with year
+            stat [3p, FT%,..]
+
+    college
+        height
+        weight
+        stat type with year
+            stat

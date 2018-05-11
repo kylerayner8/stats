@@ -6,62 +6,49 @@ import json
 import wisp2018.constants as constants
 
 from wisp2018.data_scraping.utilities import get_soup, get_data_from_draft_page_row, get_tables_from_sportsref_page
-from wisp2018.data_scraping.utilities import test_json
 
 logging. basicConfig(filename="draft.log")
 logger = logging.getLogger("DRAFT_STATS")
 
-# TODO: Better exception handling.
-# TODO: Better exception *messages*.
-def get_nba_data_for_draft_year(year_int):
+
+def get_bbref_stats(url, logger):
+    
     try:
-        url = constants.draft_url.format(year_int)
-        soup = get_soup(url,logger)
-        draft_table = soup.find('table', class_='stats_table').find('tbody')
-        player_rows = draft_table.find_all('tr')
-        # player_rows = [player_rows[0]]
+        player_soup = get_soup(url, logger)
 
-        for row in player_rows:
-            try:
-                all_stats_dict = dict()
-                name = get_data_from_draft_page_row(row, 'player', logger)
-                name_text = name.text
-                print(name_text)
-                name_url = constants.bbref_base_url + name.find('a')['href']
+        # Get all data from this page
+        all_nba_data = get_tables_from_sportsref_page(player_soup, logger)
+        
+        # TODO: Get measureables.
+        # Maybe also get from college page? Need to check that out.
+        # Height, weight, position, recruit rank (if available). 
+        # Birthdate may be trickier to parse. 
+        player_info = player_soup.find('div', id='info', class_='players')
+        h = player_info.find('span', attrs={'itemprop':'height'}).text
+        w = player_info.find('span', attrs={'itemprop':'weight'}).text
+        rc_rank = player_info.find(lambda a: a.name == 'p' and "Recruiting" in a.text)
+        try:
+            l = rc_rank.text.replace(' ', '').replace('\n', '').strip('RecruitingRank:').split(u'\xa0')
+        except:
+            logger.error("No recruit rank for {}".format(url))
+            l = "N/A"
+        all_nba_data['height'] = h
+        all_nba_data['weight'] = w
+        all_nba_data['recruit_rank'] = l
 
-                player_soup = get_soup(name_url, logger)
-
-                # TODO: Get measureables.
-                # Maybe also get from college page? Need to check that out. 
-
-                # Get all data from this page
-                all_nba_stats = get_tables_from_sportsref_page(player_soup, logger)
-
-                # Get data from college
-                # TODO: this can be from "Euro Stats at Basketball-Reference.com" for players
-                # like Porzingis. Need to handle that case as well. 
-                college_stats_url = player_soup.find(text="College Basketball at Sports-Reference.com").parent['href']
-                college_soup = get_soup(college_stats_url, logger)
-                all_college_stats = get_tables_from_sportsref_page(college_soup, logger)
-
-                all_stats_dict[name_text] = dict()
-                all_stats_dict[name_text]['NBA'] = all_nba_stats
-                all_stats_dict[name_text]['NCAA'] = all_college_stats
-
-            except Exception as e:
-                logger.error(e)
-                continue
-            
-            # TODO: Strip out special characters too?
-            filename = "player_data/{}.json".format(name_text.replace(' ', ''))
-            with open(filename, 'w') as f:
-                f.write(json.dumps(all_stats_dict))
+        
+        # Get secondary stats url
+        # TODO: this can be from "Euro Stats at Basketball-Reference.com" for players
+        # like Porzingis. Need to handle that case as well.
+        try:
+            college_stats_url = player_soup.find(text="College Basketball at Sports-Reference.com").parent['href']
+        except:
+            logger.error("No college stats link for {}".format(url))
+            college_stats_url = None
+        all_nba_data['college_url'] = college_stats_url
+        
+        return all_nba_data
 
     except Exception as e:
-        logger.error(e)
-        raise e
-
-
-if __name__ == "__main__":
-    # TODO: Logging and data directory cleanup/setupeach time this runs?
-    get_nba_data_for_draft_year(2015)
+        logger.error("Error getting stats from {}: {}".format(url, e), exc_info=True)
+        return {}

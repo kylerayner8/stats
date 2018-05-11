@@ -3,6 +3,7 @@ import time
 import re
 
 from bs4 import BeautifulSoup
+from functools import lru_cache
 
 def get_soup(url, logger):
     try:
@@ -16,6 +17,11 @@ def get_soup(url, logger):
     except Exception as e:
         logger.error(e)
         raise
+
+
+@lru_cache(maxsize=256)
+def get_soup_cache(url, logger):
+    return get_soup(url, logger)
 
 
 def get_data_from_draft_page_row(player_row, data_type, logger):
@@ -62,7 +68,13 @@ def get_tables_from_sportsref_page(ref_soup, logger, college=False):
                     if row_title != None:
                         for stat in row.find_all('td'):
                             row_dict[stat['data-stat']] = stat.text
+                            link = stat.find('a')
+                            if link:
+                                row_dict[stat['data-stat']+'_link'] = link['href']
                         if table_dict.get(row_title, None) != None:
+                            #TODO: For players who were traded/played on different teams
+                            # in a year, this breaks. All rows for a year have the same
+                            # title. Need to figure out something with the classes.
                             logger.error("Overwriting row! {}".format(row_title))
                         table_dict[row_title] = row_dict
             if stats_dict.get(table_name, None) != None:
