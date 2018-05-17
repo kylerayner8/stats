@@ -22,6 +22,8 @@ def get_college_stats(url, logger):
                 sos = team_info.find(lambda x: x.name == 'p' and 'SOS' in x.text)
                 srs = team_info.find(lambda x: x.name == 'p' and 'SRS' in x.text)
                 
+                # TODO: this currently goes in the wrong place, but I can deal
+                # with it for now.
                 psg_str = psg.text.split(":")[1].split("(")[0].strip()
                 pag_str = pag.text.split(":")[1].split("(")[0].strip()
                 srs_str = srs.text.split(":")[1].split("(")[0].strip()

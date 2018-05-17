@@ -66,6 +66,12 @@ def get_tables_from_sportsref_page(ref_soup, logger, college=False):
                     row_title = row.get('id', None)
                     row_dict = dict()
                     if row_title != None:
+                        if row.has_attr('class'):
+                            row_cl = row['class']
+                        else:
+                            row_cl = []
+                        if 'partial_table' in row_cl:
+                            continue
                         for stat in row.find_all('td'):
                             row_dict[stat['data-stat']] = stat.text
                             link = stat.find('a')

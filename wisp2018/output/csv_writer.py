@@ -19,7 +19,7 @@ def write_csv(write_dict_list, file_name, order=None):
         headers_str = ""
         for i in range(len(headers)):
             headers_str += str(headers[i]) + ","
-        headers_str.rstrip(",")
+        headers_str = headers_str.rstrip(",")
         headers_str += "\n"
         file.write(headers_str.encode('utf8'))
 
@@ -28,7 +28,7 @@ def write_csv(write_dict_list, file_name, order=None):
             for i in range(len(headers)):
                 row_out_str += str(row.get(headers[i], ""))
                 row_out_str += ","
-            row_out_str.rstrip(",")
+            row_out_str = row_out_str.rstrip(",")
             row_out_str += "\n"
             file.write(row_out_str.encode('utf8'))
 

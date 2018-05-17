@@ -12,7 +12,7 @@ from wisp2018.data_scraping.utilities import (get_data_from_draft_page_row,
                                               get_tables_from_sportsref_page,
                                               get_soup_cache)
 
-logging. basicConfig(filename="draft.log")
+logging.basicConfig(filename="draft.log")
 logger = logging.getLogger("DRAFT_STATS")
 
 # TODO: Better exception handling.
@@ -63,5 +63,7 @@ def get_nba_data_for_draft_year(year_int, write=False):
 
 if __name__ == "__main__":
     # TODO: Logging and data directory cleanup/setupeach time this runs?
-    get_nba_data_for_draft_year(2015, write=False)
-    print(get_soup_cache.cache_info())
+    for i in range(0, 6):
+        yr = 2011 + i
+        get_nba_data_for_draft_year(yr, write=True)
+        print(get_soup_cache.cache_info())
