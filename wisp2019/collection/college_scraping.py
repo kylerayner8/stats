@@ -1,4 +1,4 @@
-from wisp2018.data_scraping.utilities import get_soup, get_soup_cache, get_tables_from_sportsref_page
+from wisp2019.collection.utilities import get_soup, get_soup_cache, get_tables_from_sportsref_page
 
 def get_college_stats(url, logger):
     try:

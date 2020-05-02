@@ -1,0 +1,6 @@
+1. Per 40 or per-possession stats from a player's last year in college
+2. Age at draft
+3. NBA stats for first 8 years
+
+Stretch:
+1. PIPM

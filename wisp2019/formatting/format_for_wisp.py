@@ -1,14 +1,17 @@
 import json
 import logging
 import os
+import datetime
 
-from wisp2018.output.csv_writer import write_csv
+from wisp2019.formatting.csv_writer import write_csv
+from wisp2019.collection.utilities import get_age
+from wisp2019.constants import save_fmt
 
-headers = ['Name','Year','RSCI','Age','Height','Pos','College',
-'ncaaG','ncaaMP','ncaaFGA','ncaa2PM','ncaa2PA','ncaa2PER','ncaa3PM',
-'ncaa3PA','ncaa3PER','ncaaFTM','ncaaFTA','ncaaFTPER','ncaaORB',
-'ncaaDRB','ncaaTRB','ncaaAST','ncaaSTL','ncaaBLK','ncaaTOV',
-'ncaaPF','BPM1','BPM2','BPM3','BPM4','BPM5']
+headers = ['Name', 'Year', 'RSCI', 'Age', 'Height', 'Pos', 'College',
+'ncaaG', 'ncaaMP', 'ncaaFGA', 'ncaa2PM', 'ncaa2PA', 'ncaa2PER', 'ncaa3PM',
+'ncaa3PA', 'ncaa3PER', 'ncaaFTM', 'ncaaFTA', 'ncaaFTPER', 'ncaaORB',
+'ncaaDRB', 'ncaaTRB', 'ncaaAST', 'ncaaSTL', 'ncaaBLK', 'ncaaTOV',
+'ncaaPF', 'BPM1', 'BPM2', 'BPM3', 'BPM4', 'BPM5', 'BPM6', 'BPM7', 'BPM8']
 
 
 def parse_player_for_writing(player_stats_dict, logger):
@@ -28,15 +31,16 @@ def parse_player_for_writing(player_stats_dict, logger):
         for y in years:
             yparsed.append(y.strip('players_per_game.'))
         d_out['Year'] = sorted(yparsed)[-1]
-        d_out['RSCI'] = n_stats['recruit_rank'][1].strip('(').strip(')')
-        # TODO: make me not cry when I get this age. 
-        first_nba_age = float(n_stats['per_game'][sorted(list(n_stats['per_game'].keys()))[0]]['age'])
-        print(first_nba_age)
-        d_out['Age'] = first_nba_age - 1
+        d_out['RSCI'] = n_stats['recruit_rank'] 
+        birth_date = datetime.datetime.strptime(stats['birth_date'], save_fmt)
+        draft_date = datetime.datetime.strptime(stats['draft_date'], save_fmt)
+        draft_age = get_age(birth_date, draft_date)
+        print(draft_age)
+        d_out['Age'] = draft_age
         d_out['Height'] = n_stats['height']
         # TODO: need to add position to scraping
         d_out['Pos'] = 'soon'
-        cystats = c_stats['players_per_poss']['players_per_poss.{}'.format(d_out['Year'])]
+        cystats = c_stats['players_per_min']['players_per_min.{}'.format(d_out['Year'])]
         d_out['College'] = cystats['school_name']
         d_out['ncaaG'] = cystats['g']
         d_out['ncaaMP'] = cystats['mp']
@@ -44,25 +48,25 @@ def parse_player_for_writing(player_stats_dict, logger):
         # Pace adjusted stats
         pace = float(c_stats['players_per_game']['players_per_game.{}'.format(d_out['Year'])]['ps_per_g'])
         statfactor = 72.0/pace
-        d_out['ncaaFGA'] = float(cystats['fga_per_poss']) * statfactor
-        d_out['ncaa2PM'] = float(cystats['fg2_per_poss']) * statfactor
-        d_out['ncaa2PA'] = float(cystats['fg2a_per_poss']) * statfactor
+        d_out['ncaaFGA'] = float(cystats['fga_per_min']) * statfactor
+        d_out['ncaa2PM'] = float(cystats['fg2_per_min']) * statfactor
+        d_out['ncaa2PA'] = float(cystats['fg2a_per_min']) * statfactor
         d_out['ncaa2PER'] = float(cystats['fg2_pct'])
-        d_out['ncaa3PM'] = float(cystats['fg3_per_poss']) * statfactor
-        d_out['ncaa3PA'] = float(cystats['fg3a_per_poss']) * statfactor
+        d_out['ncaa3PM'] = float(cystats['fg3_per_min']) * statfactor
+        d_out['ncaa3PA'] = float(cystats['fg3a_per_min']) * statfactor
         d_out['ncaa3PER'] = float(cystats['fg3_pct']) if cystats['fg3_pct'] != "" else 0
-        d_out['ncaaFTM'] = float(cystats['ft_per_poss']) * statfactor
-        d_out['ncaaFTA'] = float(cystats['fta_per_poss']) * statfactor
+        d_out['ncaaFTM'] = float(cystats['ft_per_min']) * statfactor
+        d_out['ncaaFTA'] = float(cystats['fta_per_min']) * statfactor
         d_out['ncaaFTPER'] = float(cystats['ft_pct'])
         # TODO: sports ref doesn't split these out in pace stats
         # d_out['ncaaORB'] = cystats['']
         # d_out['ncaaDRB']
-        d_out['ncaaTRB'] = float(cystats['trb_per_poss']) * statfactor
-        d_out['ncaaAST'] = float(cystats['ast_per_poss']) * statfactor
-        d_out['ncaaSTL'] = float(cystats['stl_per_poss']) * statfactor
-        d_out['ncaaBLK'] = float(cystats['blk_per_poss']) * statfactor
-        d_out['ncaaTOV'] = float(cystats['tov_per_poss']) * statfactor
-        d_out['ncaaPF'] = float(cystats['pf_per_poss']) * statfactor
+        d_out['ncaaTRB'] = float(cystats['trb_per_min']) * statfactor
+        d_out['ncaaAST'] = float(cystats['ast_per_min']) * statfactor
+        d_out['ncaaSTL'] = float(cystats['stl_per_min']) * statfactor
+        d_out['ncaaBLK'] = float(cystats['blk_per_min']) * statfactor
+        d_out['ncaaTOV'] = float(cystats['tov_per_min']) * statfactor
+        d_out['ncaaPF'] = float(cystats['pf_per_min']) * statfactor
 
         # NBA stats
         # d_out['BPM1']
@@ -72,7 +76,7 @@ def parse_player_for_writing(player_stats_dict, logger):
         # d_out['BPM5']
         k = 1
         for key in sorted(n_stats['advanced'].keys()):
-            if k > 5:
+            if k > 8:
                 break
             bpm = n_stats['advanced'][key]['bpm']
             d_out['BPM{}'.format(k)] = bpm
@@ -80,7 +84,7 @@ def parse_player_for_writing(player_stats_dict, logger):
         
         index = 1
         for key in sorted(n_stats['per_poss'].keys()):
-            if index > 5:
+            if index > 8:
                 break
             d_out['nbaG{}'.format(index)] = n_stats['per_poss'][key]['g']
             d_out['nbaMP{}'.format(index)] = n_stats['per_poss'][key]['mp']
@@ -128,12 +132,13 @@ def test_parser():
     logger = logging.getLogger("WISP_WRITE")
     stats_d_list = list()
     # TODO: make this location dynamic
-    for filename in os.listdir('/Users/ian/wisp/player_data'):
-        with open('/Users/ian/wisp/player_data/'+filename) as f:
+    for filename in os.listdir('/home/ian/dev/wisp/player_data/'):
+        with open('/home/ian/dev/wisp/player_data/'+filename) as f:
             d = json.loads(f.read())
         d = parse_player_for_writing(d, logger)
         stats_d_list.append(d)
     write_stats(stats_d_list, logger)
 
 if __name__ == '__main__':
+    print("running")
     test_parser()

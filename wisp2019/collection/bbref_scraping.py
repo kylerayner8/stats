@@ -1,11 +1,7 @@
-import requests
-import os
+import datetime
 import logging
-import json
 
-import wisp2018.constants as constants
-
-from wisp2018.data_scraping.utilities import get_soup, get_data_from_draft_page_row, get_tables_from_sportsref_page
+from wisp2019.collection.utilities import get_soup, get_tables_from_sportsref_page
 
 logging. basicConfig(filename="draft.log")
 logger = logging.getLogger("DRAFT_STATS")
@@ -22,19 +18,23 @@ def get_bbref_stats(url, logger):
         # TODO: Get measureables.
         # Maybe also get from college page? Need to check that out.
         # Height, weight, position, recruit rank (if available). 
-        # Birthdate may be trickier to parse. 
+        # Birth date may be trickier to parse.
         player_info = player_soup.find('div', id='info', class_='players')
-        h = player_info.find('span', attrs={'itemprop':'height'}).text
-        w = player_info.find('span', attrs={'itemprop':'weight'}).text
+        player_height = player_info.find('span', attrs={'itemprop':'height'}).text
+        player_weight = player_info.find('span', attrs={'itemprop':'weight'}).text
         rc_rank = player_info.find(lambda a: a.name == 'p' and "Recruiting" in a.text)
+        birth_date = player_info.find('span', id="necro-birth").attrs["data-birth"]
         try:
-            l = rc_rank.text.replace(' ', '').replace('\n', '').strip('RecruitingRank:').split(u'\xa0')
-        except:
-            logger.error("No recruit rank for {}".format(url))
-            l = "N/A"
-        all_nba_data['height'] = h
-        all_nba_data['weight'] = w
-        all_nba_data['recruit_rank'] = l
+            player_rank = rc_rank.text.replace(' ', '').replace('\n', '').strip('RecruitingRank:').split(u'\xa0')[0]
+            player_rank = player_rank.split('(')[1]
+            player_rank = player_rank.strip(')')
+        except Exception as e:
+            logger.error("No recruit rank for {}: {}".format(url, e))
+            player_rank = "N/A"
+        all_nba_data['height'] = player_height
+        all_nba_data['weight'] = player_weight
+        all_nba_data['recruit_rank'] = player_rank
+        all_nba_data['birth_date'] = birth_date
 
         
         # Get secondary stats url

@@ -1,3 +1,4 @@
+import datetime
 import requests
 import time
 import re
@@ -5,12 +6,13 @@ import re
 from bs4 import BeautifulSoup
 from functools import lru_cache
 
+
 def get_soup(url, logger):
     try:
         time.sleep(1)
         wpage = requests.get(url)
         re.compile("<!--|-->")
-        soup = BeautifulSoup(re.sub("<!--|-->","", wpage.text), 'lxml')
+        soup = BeautifulSoup(re.sub("<!--|-->", "", wpage.text), 'lxml')
 
         return soup
 
@@ -26,7 +28,7 @@ def get_soup_cache(url, logger):
 
 def get_data_from_draft_page_row(player_row, data_type, logger):
     try:
-        return player_row.find('td', attrs={'data-stat':data_type})
+        return player_row.find('td', attrs={'data-stat': data_type})
 
     except Exception as e:
         logger.error(e)
@@ -58,14 +60,14 @@ def get_tables_from_sportsref_page(ref_soup, logger, college=False):
         tables = ref_soup.find_all('div', class_=table_class)
         stats_dict = dict()
         for table_div in tables:
-            table = table_div.find(lambda tag: tag.name=='table')
+            table = table_div.find(lambda tag: tag.name == 'table')
             table_name = table['id']
             table_dict = dict()
-            if table.find('tbody') != None:
+            if table.find('tbody') is not None:
                 for row in table.find('tbody').find_all('tr'):
                     row_title = row.get('id', None)
                     row_dict = dict()
-                    if row_title != None:
+                    if row_title is not None:
                         if row.has_attr('class'):
                             row_cl = row['class']
                         else:
@@ -77,13 +79,13 @@ def get_tables_from_sportsref_page(ref_soup, logger, college=False):
                             link = stat.find('a')
                             if link:
                                 row_dict[stat['data-stat']+'_link'] = link['href']
-                        if table_dict.get(row_title, None) != None:
-                            #TODO: For players who were traded/played on different teams
+                        if table_dict.get(row_title, None) is not None:
+                            # TODO: For players who were traded/played on different teams
                             # in a year, this breaks. All rows for a year have the same
                             # title. Need to figure out something with the classes.
                             logger.error("Overwriting row! {}".format(row_title))
                         table_dict[row_title] = row_dict
-            if stats_dict.get(table_name, None) != None:
+            if stats_dict.get(table_name, None) is not None:
                 logger.error("Overwriting table! {}".format(table_name))
             stats_dict[table_name] = table_dict
 
@@ -92,3 +94,14 @@ def get_tables_from_sportsref_page(ref_soup, logger, college=False):
     except Exception as e:
         logger.error(e, exc_info=True)
         raise
+
+
+def get_age(birth_date: datetime.datetime, draft_date: datetime.datetime) -> float:
+    """
+    This is a quick and dirty way to approximate age. It will probably do for our
+    use cases.
+    :return:
+    """
+    days = draft_date.toordinal() - birth_date.toordinal()
+    age = float(days)/365.25
+    return age
