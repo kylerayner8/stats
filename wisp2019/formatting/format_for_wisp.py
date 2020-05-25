@@ -14,6 +14,18 @@ headers = ['Name', 'Year', 'RSCI', 'Age', 'Height', 'Pos', 'College',
 'ncaaPF', 'BPM1', 'BPM2', 'BPM3', 'BPM4', 'BPM5', 'BPM6', 'BPM7', 'BPM8']
 
 
+def get_height(height_str: str) -> int:
+    """
+    Takes a string in the format of 'Feet-Inches' ('6-6', e.g.)
+    and returns the height in inches as an int. 
+    """
+    ft, inches = height_str.split('-')
+    ft = int(ft)
+    inches = int(inches)
+    converted_height = (12 * ft) + inches
+    return converted_height
+
+
 def parse_player_for_writing(player_stats_dict, logger):
     try:
         d_out = dict()
@@ -35,9 +47,8 @@ def parse_player_for_writing(player_stats_dict, logger):
         birth_date = datetime.datetime.strptime(stats['birth_date'], save_fmt)
         draft_date = datetime.datetime.strptime(stats['draft_date'], save_fmt)
         draft_age = get_age(birth_date, draft_date)
-        print(draft_age)
         d_out['Age'] = draft_age
-        d_out['Height'] = n_stats['height']
+        d_out['Height'] = get_height(n_stats['height'])
         # TODO: need to add position to scraping
         d_out['Pos'] = 'soon'
         cystats = c_stats['players_per_min']['players_per_min.{}'.format(d_out['Year'])]
@@ -132,8 +143,8 @@ def test_parser():
     logger = logging.getLogger("WISP_WRITE")
     stats_d_list = list()
     # TODO: make this location dynamic
-    for filename in os.listdir('/home/ian/dev/wisp/player_data/'):
-        with open('/home/ian/dev/wisp/player_data/'+filename) as f:
+    for filename in os.listdir('/home/ian/dev/player_data/'):
+        with open('/home/ian/dev/player_data/'+filename) as f:
             d = json.loads(f.read())
         d = parse_player_for_writing(d, logger)
         stats_d_list.append(d)
