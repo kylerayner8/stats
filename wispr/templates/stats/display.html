@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Data{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+    <table>
+        <script type="text/javascript" src="{{url_for('static', filename='script.js') }}"></script>
+      <thead>
+        <th>Player Name</th>
+        <th>Points</th>
+        <th>Points Per Game</th>
+      </thead>
+      <tbody>
+        {% for row in data %}
+          <tr id="pname"> 
+            <td> {{ row['name'] }} </td>
+            <td> {{ row['points'] }} </td>
+            <td> {{ row['points_per_game'] }} </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% endblock %}
